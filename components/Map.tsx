@@ -1,14 +1,14 @@
-// components/Map.tsx
-
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import mapboxgl, { LngLatBounds, Map as MapboxMap } from 'mapbox-gl';
 
 interface MapProps {
   path: [number, number][];
   accessToken: string;
+  dronePosition: [number, number] | null;
+  isDroneMoving: boolean;
 }
 
-const Map: React.FC<MapProps> = ({ path, accessToken }) => {
+const Map: React.FC<MapProps> = ({ path, accessToken, dronePosition, isDroneMoving }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
 
@@ -22,7 +22,6 @@ const Map: React.FC<MapProps> = ({ path, accessToken }) => {
       zoom: 1,
     });
 
-    // Initialize a GeoJSON object for the drone path
     const geojson: mapboxgl.GeoJSONSourceRaw = {
       type: 'geojson',
       data: {
@@ -36,7 +35,6 @@ const Map: React.FC<MapProps> = ({ path, accessToken }) => {
     };
 
     mapRef.current.on('load', () => {
-      // Check if the source with ID 'drone-path' already exists
       if (!mapRef.current!.getSource('drone-path')) {
         mapRef.current!.addSource('drone-path', geojson);
       }
@@ -51,15 +49,10 @@ const Map: React.FC<MapProps> = ({ path, accessToken }) => {
         },
       });
 
-      // Calculate the bounding box
       const bounds = new LngLatBounds();
 
       if (path.length > 0) {
         path.forEach(([longitude, latitude]) => {
-          // Debug logging to identify invalid data
-          console.log(`Latitude: ${latitude}, Longitude: ${longitude}`);
-
-          // Check if latitude and longitude are valid numbers
           if (!isNaN(latitude) && !isNaN(longitude)) {
             bounds.extend([longitude, latitude]);
           }
@@ -78,22 +71,35 @@ const Map: React.FC<MapProps> = ({ path, accessToken }) => {
     };
   }, [path, accessToken]);
 
-  // Update the map when the path data changes
   useEffect(() => {
-    if (mapRef.current) {
-      // Update the source data
-      (mapRef.current.getSource('drone-path') as any)?.setData({
-        type: 'Feature',
-        geometry: {
-          type: 'LineString',
-          coordinates: path,
-        },
-        properties: {},
-      });
+    if (dronePosition && mapRef.current) {
+      const [longitude, latitude] = dronePosition;
+      mapRef.current.flyTo({ center: [longitude, latitude], zoom: 10 });
     }
-  }, [path]);
+  }, [dronePosition]);
 
-  return <div ref={mapContainerRef} className="map-container h-[600px] rounded-lg shadow-md mb-8" />;
+  useEffect(() => {
+    if (isDroneMoving) {
+      startDroneMovement();
+    }
+  }, [isDroneMoving]);
+
+  const startDroneMovement = () => {
+    let index = 0;
+
+    const moveDrone = () => {
+      if (index < path.length - 1) {
+        const [longitude, latitude] = path[index];
+        mapRef.current!.flyTo({ center: [longitude, latitude], zoom: 10 });
+        index++;
+        setTimeout(moveDrone, 1000); // Adjust the interval as needed (1 second delay between movements)
+      }
+    };
+
+    moveDrone();
+  };
+
+  return <div ref={mapContainerRef} className="map-container max-w-screen max-h-screen w-screen h-screen rounded-lg shadow-md" />;
 };
 
 export default Map;
