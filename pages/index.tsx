@@ -1,118 +1,160 @@
-import Image from 'next/image'
-import { Inter } from 'next/font/google'
+// pages/simulate.tsx
 
-const inter = Inter({ subsets: ['latin'] })
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import Map from '../components/Map';
 
-export default function Home() {
-  return (
-    <main
-      className={`flex min-h-screen flex-col items-center justify-between p-24 ${inter.className}`}
-    >
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">pages/index.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+// Define your Mapbox access token here
+const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoiYXNoaXNoMTMxMiIsImEiOiJjbG11cDZyeTkwazVhMmt2ejcyOXJibTQ3In0.tiuLKPdb6VNgT5L17NbtkQ';
+
+const Simulate = () => {
+    const [latitude, setLatitude] = useState<string>('');
+    const [longitude, setLongitude] = useState<string>('');
+    const [path, setPath] = useState<[number, number][]>([]); // Array of latitude and longitude pairs
+    const [isSimulationPaused, setIsSimulationPaused] = useState<boolean>(true);
+
+    const handleLatitudeChange = (e: ChangeEvent<HTMLInputElement>) => {
+        setLatitude(e.target.value);
+    };
+
+    const handleLongitudeChange = (e: ChangeEvent<HTMLInputElement>) => {
+        setLongitude(e.target.value);
+    };
+
+    const handleSubmit = (e: FormEvent) => {
+        e.preventDefault();
+        // Add the data to your simulation
+        if (latitude && longitude) {
+            const newLatitude = parseFloat(latitude);
+            const newLongitude = parseFloat(longitude);
+            setPath((prevPath) => [...prevPath, [newLongitude, newLatitude]]);
+            setLatitude('');
+            setLongitude('');
+        }
+    };
+
+    const handlePauseResume = () => {
+        setIsSimulationPaused((prev) => !prev);
+    };
+
+    const handleReset = () => {
+        setPath([]); // Clear the path
+        setIsSimulationPaused(true); // Pause simulation
+    };
+
+    const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]; // Get the first selected file
+        if (file) {
+          // Read the file as text
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const fileContent = event.target?.result as string;
+      
+            // Assuming the CSV has latitude and longitude columns separated by a comma
+            const lines = fileContent.split('\n');
+            const csvData = lines.map((line) => {
+              const [longitude, latitude] = line.split(',').map(Number);
+              return [longitude, latitude];
+            });
+      
+            // Filter out invalid data (lines without latitude or longitude)
+            const validCsvData: [number, number][] = csvData
+              .filter(([longitude, latitude]) => !isNaN(longitude) && !isNaN(latitude))
+              .map(([longitude, latitude]) => [longitude, latitude]);
+      
+            // Update the map's path with the valid CSV data
+            setPath(validCsvData);
+          };
+          reader.readAsText(file); // Read the file as text
+        }
+      };      
+        
+    return (
+        <div className='max-h-screen bg-gradient-to-r from-blue-400 to-blue-600 items-center justify-center p-8 overflow-y-scroll'>
+            <div className="flex flex-row p-10 shadow-lg h-full">
+                <div className="bg-white shadow-xl rounded-lg p-8 w-full max-w-2xl mx-4 h-[500px]">
+                    <h1 className="text-4xl font-bold mb-8 text-center text-gray-800">Drone Simulation</h1>
+                    <form onSubmit={handleSubmit} className="mb-8 flex flex-col items-center">
+                        <div className="w-full p-4">
+                            <input
+                                type="text"
+                                id="latitude"
+                                name="latitude"
+                                value={latitude}
+                                onChange={handleLatitudeChange}
+                                placeholder="Enter Latitude"
+                                className="border border-gray-300 px-4 py-2 rounded-lg w-full"
+                            />
+                        </div>
+                        <div className="w-full p-4">
+                            <input
+                                type="text"
+                                id="longitude"
+                                name="longitude"
+                                value={longitude}
+                                onChange={handleLongitudeChange}
+                                placeholder="Enter Longitude"
+                                className="border border-gray-300 px-4 py-2 rounded-lg w-full"
+                            />
+                        </div>
+                        <div className="flex space-x-4">
+                            <button
+                                type="button"
+                                onClick={handlePauseResume}
+                                className={isSimulationPaused ? `flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-md shadow-md` : `flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-md shadow-md`}
+                            >
+                                {isSimulationPaused ? 'Find' : 'Pause'}
+                            </button>
+                            <button
+                                type="submit"
+                                className={`flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md shadow-md`}
+                            >
+                                Add
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleReset}
+                                className={`flex-1 bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-md shadow-md`}
+                            >
+                                Reset
+                            </button>
+                        </div>
+                    </form>
+                    <div>
+                        <label htmlFor="csvFile" className="block font-semibold text-gray-700 mb-2">
+                            Upload CSV File
+                        </label>
+                        <input
+                            type="file"
+                            id="csvFile"  // Should match the htmlFor attribute in the label
+                            name="csvFile"  // Should match the name attribute in the input
+                            accept=".csv"
+                            onChange={handleFileUpload}
+                            className="border border-gray-300 rounded px-4 py-2 w-full"
+                            style={{display:'none'}}
+                        />
+                    </div>
+                </div>
+                <div className="bg-white bg-opacity-90 shadow-md rounded-lg w-2/3 mx-4 p-4 max-h-screen overflow-y-scroll">
+                    <h2 className="text-2xl mb-4 text-center text-gray-800 font-bold">Added Data</h2>
+                    <ul className="px-4">
+                        {path.map(([longitude, latitude], index) => (
+                            <li key={index} className="mb-2">
+                                Latitude: {latitude}, Longitude: {longitude}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+                <div className="w-full h-[600px] mx-4">
+                    <Map path={path} accessToken={MAPBOX_ACCESS_TOKEN} />
+                </div>
+            </div>
+
         </div>
-      </div>
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700/10 after:dark:from-sky-900 after:dark:via-[#0141ff]/40 before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
 
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
+    );
+};
 
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
+export default Simulate;
 
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Discover and deploy boilerplate example Next.js&nbsp;projects.
-          </p>
-        </a>
 
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  )
-}
